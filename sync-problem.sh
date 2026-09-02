@@ -27,7 +27,7 @@ DEST="$PERSONAL_REPO/$PROBLEM"
 echo "========================================"
 echo " LeetCode Problem Sync"
 echo "========================================"
-echo "Problem:       $PROBLEM"
+echo "Problem: $PROBLEM"
 echo
 
 # --------------------------------------------------
@@ -52,37 +52,8 @@ if [ ! -d "$PERSONAL_REPO/.git" ]; then
 fi
 
 # --------------------------------------------------
-# Show identities and remotes
+# Check personal repository
 # --------------------------------------------------
-
-echo "Public Git identity:"
-git -C "$PUBLIC_REPO" config user.name
-git -C "$PUBLIC_REPO" config user.email
-echo
-
-echo "Personal Git identity:"
-git -C "$PERSONAL_REPO" config user.name
-git -C "$PERSONAL_REPO" config user.email
-echo
-
-echo "Public remote:"
-git -C "$PUBLIC_REPO" remote get-url origin
-echo
-
-echo "Personal remote:"
-git -C "$PERSONAL_REPO" remote get-url origin
-echo
-
-# --------------------------------------------------
-# Check working trees
-# --------------------------------------------------
-
-if [ -n "$(git -C "$PUBLIC_REPO" status --porcelain)" ]; then
-    echo "ERROR: Public repository has uncommitted changes."
-    echo
-    git -C "$PUBLIC_REPO" status --short
-    exit 1
-fi
 
 if [ -n "$(git -C "$PERSONAL_REPO" status --porcelain)" ]; then
     echo "ERROR: Personal repository has uncommitted changes."
@@ -92,7 +63,37 @@ if [ -n "$(git -C "$PERSONAL_REPO" status --porcelain)" ]; then
 fi
 
 # --------------------------------------------------
-# Dry run
+# Check public repository changes
+# Only the target problem may be uncommitted
+# --------------------------------------------------
+
+PUBLIC_CHANGES=$(git -C "$PUBLIC_REPO" status --porcelain)
+
+OTHER_CHANGES=$(echo "$PUBLIC_CHANGES" | grep -v "^[?MADRCU ][?MADRCU ] $PROBLEM/" || true)
+
+if [ -n "$OTHER_CHANGES" ]; then
+    echo "ERROR: Public repository has changes outside the target problem."
+    echo
+    echo "$PUBLIC_CHANGES"
+    echo
+    echo "Commit or remove those changes first."
+    exit 1
+fi
+
+# --------------------------------------------------
+# Check personal destination
+# --------------------------------------------------
+
+if [ -d "$DEST" ]; then
+    echo "ERROR: Problem already exists in personal repository:"
+    echo "$DEST"
+    echo
+    echo "Nothing was changed."
+    exit 1
+fi
+
+# --------------------------------------------------
+# DRY RUN
 # --------------------------------------------------
 
 if [ "$DRY_RUN" = true ]; then
@@ -100,76 +101,65 @@ if [ "$DRY_RUN" = true ]; then
     echo "----------------------------------------"
     echo "DRY RUN"
     echo "----------------------------------------"
-
-    if [ -d "$DEST" ]; then
-
-        echo
-        echo "Personal copy already exists."
-        echo "Comparing files..."
-
-        if diff -qr "$SOURCE" "$DEST" > /dev/null; then
-            echo "✓ Both folders are identical."
-        else
-            echo "⚠ The folders are different."
-            diff -qr "$SOURCE" "$DEST" || true
-        fi
-
-    else
-
-        echo
-        echo "Personal copy does not exist."
-        echo "Would create:"
-        echo "$DEST"
-
-    fi
-
     echo
-    echo "No files were changed."
-    echo "No commits were created."
-    echo "No pushes were performed."
+
+    echo "Public repository:"
+    echo "  $PUBLIC_REPO"
+    echo
+
+    echo "Personal repository:"
+    echo "  $PERSONAL_REPO"
+    echo
+
+    echo "Problem:"
+    echo "  $PROBLEM"
+    echo
+
+    echo "Files in problem:"
+    find "$SOURCE" -type f | sed "s|$SOURCE/|  |"
+    echo
+
+    echo "Public repository changes:"
+    if [ -n "$PUBLIC_CHANGES" ]; then
+        echo "$PUBLIC_CHANGES"
+    else
+        echo "  No uncommitted changes."
+    fi
+    echo
+
+    echo "Personal destination:"
+    echo "  Does not exist — ready for sync."
+    echo
+
+    echo "The real run would:"
+    echo "  1. Commit the problem to the public repository."
+    echo "  2. Push public repository."
+    echo "  3. Copy the problem to the personal repository."
+    echo "  4. Commit the problem to the personal repository."
+    echo "  5. Push personal repository."
+    echo
+
+    echo "========================================"
+    echo "✓ Dry run complete"
+    echo "========================================"
 
     exit 0
 fi
 
 # --------------------------------------------------
-# Protect existing personal folder
+# PUBLIC REPOSITORY
 # --------------------------------------------------
 
-if [ -d "$DEST" ]; then
-
-    echo
-    echo "ERROR: Problem already exists in personal repository:"
-    echo "$DEST"
-    echo
-    echo "Nothing was changed."
-    echo "If you intentionally want to update it, handle that separately."
-    exit 1
-
-fi
-
-# --------------------------------------------------
-# Copy problem
-# --------------------------------------------------
-
-echo
-echo "----------------------------------------"
-echo "Copying problem..."
-echo "----------------------------------------"
-
-cp -r "$SOURCE" "$DEST"
-
-echo "✓ Problem copied to personal repository."
-
-# --------------------------------------------------
-# Public repository
-# --------------------------------------------------
-
-echo
 echo "----------------------------------------"
 echo "Public repository"
 echo "----------------------------------------"
 
 git -C "$PUBLIC_REPO" add "$PROBLEM"
+
+if git -C "$PUBLIC_REPO" diff --cached --quiet; then
+    echo "ERROR: No changes found for $PROBLEM."
+    exit 1
+fi
 
 git -C "$PUBLIC_REPO" commit \
     -m "Add solution for LeetCode ${PROBLEM%%-*}"
@@ -177,12 +167,21 @@ git -C "$PUBLIC_REPO" commit \
 git -C "$PUBLIC_REPO" push origin main
 
 echo "✓ Public repository pushed."
-
-# --------------------------------------------------
-# Personal repository
-# --------------------------------------------------
-
 echo
+
+# --------------------------------------------------
+# PERSONAL REPOSITORY
+# --------------------------------------------------
+
+echo "----------------------------------------"
+echo "Copying to personal repository"
+echo "----------------------------------------"
+
+cp -r "$SOURCE" "$DEST"
+
+echo "✓ Problem copied."
+echo
+
 echo "----------------------------------------"
 echo "Personal repository"
 echo "----------------------------------------"
@@ -195,8 +194,8 @@ git -C "$PERSONAL_REPO" commit \
 git -C "$PERSONAL_REPO" push origin main
 
 echo "✓ Personal repository pushed."
-
 echo
+
 echo "========================================"
 echo "✓ Sync complete"
 echo "========================================"
