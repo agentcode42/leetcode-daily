@@ -1,12 +1,3 @@
-Yes. I would split the documentation into **three clearly separated sections**:
-
-1. **Daily use after everything is already set up** — what you actually do every day.
-2. **Initial setup / rebuilding the system** — all commands needed to create it from scratch.
-3. **Troubleshooting** — the errors we actually encountered and how to diagnose them.
-
-That will make the document much more useful when you look at it months later.
-
-Here is the revised complete guide you can use as your main README/documentation.
 
 # LeetCode Daily — Two GitHub Repository Workflow
 
