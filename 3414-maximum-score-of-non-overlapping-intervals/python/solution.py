@@ -2,7 +2,7 @@ class Solution:
     def maximumWeight(self, intervals: List[List[int]]) -> List[int]:
         inv = []
         n = len(intervals)
-        for  i in range(n):
+        for i in range(n):
             start,end,val = intervals[i]
             inv.append([start,end,val,i])
         inv.sort()
